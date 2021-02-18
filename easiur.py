@@ -67,6 +67,7 @@ def getEmissionsImpl(plantCodes, species):
 
 def getEmissions(plantCodes):
     emissions = pd.read_excel(EMISSIONS_FILE,sheet_name='SO2',skiprows=1,usecols=['Plant Code','Generation (kWh)'])
+    emissions = emissions[emissions['Plant Code'].str.contains()] a;ljdf;lakjdf;lkadf;ljks
     generationPlantCodes = emissions['Plant Code'].values.astype(int) # ignore the two information cells at the bottom
     generation = emissions['Generation (kWh)'].values.astype(float)/1e3
 

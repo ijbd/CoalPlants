@@ -9,7 +9,7 @@ Code by ijbd
 > Fixed EASIUR processing script. Updated data source descriptions.
 
 2/17/2021
-> Worked on `easiur.py` with the goal of getting a csv to pull marginal cost per MWh for any generator in the U.S. I started by getting generator info form EIA860 including nameplate capacity and stack heights. Since annual emissions/generation data are by plant, I chose to assume each generator contributes to a fraction of the plant's generation/emissions, proportional to its nameplate capacity. Stack Height data is also aggregated at the plant level, so I assume every generator in a plant has the average height of all stacks reported for that particular plant. Generators with no stack height data are assumed to have stack heights of 150m.
+> Worked on `easiur.py` with the goal of getting a csv to pull marginal cost per MWh for any generator in the U.S. I started by getting generator info form EIA860 including nameplate capacity and stack heights. **ASSUMPTION:** Since annual emissions/generation data are by plant, each generator in a plant has the same marginal emissions. **ASSUMPTION:** Every generator in a plant has the average height of all stacks reported for that plant. **ASSUMPTION:** Generators with no stack height data are assumed to have stack heights of 150m.
 
 ## Use
 
