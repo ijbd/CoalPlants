@@ -1,6 +1,4 @@
 # EASIUR Python Integration Module
-Python module for assessing health damages associated with generator emissions.
-
 Code by ijbd
 
 ## Updates
@@ -9,6 +7,9 @@ Code by ijbd
 
 2/15/2021
 > Fixed EASIUR processing script. Updated data source descriptions.
+
+2/17/2021
+> Worked on `easiur.py` with the goal of getting a csv to pull marginal cost per MWh for any generator in the U.S. I started by getting generator info form EIA860 including nameplate capacity and stack heights. Since annual emissions/generation data are by plant, I chose to assume each generator contributes to a fraction of the plant's generation/emissions, proportional to its nameplate capacity. Stack Height data is also aggregated at the plant level, so I assume every generator in a plant has the average height of all stacks reported for that particular plant. Generators with no stack height data are assumed to have stack heights of 150m.
 
 ## Use
 
@@ -29,7 +30,7 @@ To get EASIUR Data:
 3. Move the output file back to `data/easiur_msc`, then run the `processEasiur.py`.
 
 ### EIA Annual Emissions
-This [dataset](https://www.eia.gov/electricity/data/emissions/) [3] provides *annual* unit-level generation and emissions (CO2, NOx, and SO2). 
+This [dataset](https://www.eia.gov/electricity/data/emissions/) [3] provides *annual* unit-level generation and emissions (CO2, NOx, and SO2). **Bad cell at bottom of excel sheet.**
 
 ### EIA-860 
 >"The survey Form EIA-860 collects generator-level specific information about existing and planned generators and associated environmental equipment at electric power plants with 1 megawatt or greater of combined nameplate capacity. Summary level data can be found in the Electric Power Annual."
