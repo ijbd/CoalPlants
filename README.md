@@ -11,13 +11,39 @@ Code by ijbd
 2/17/2021
 > Worked on `easiur.py` with the goal of getting a csv to pull marginal cost per MWh for any generator in the U.S. I started by getting generator info form EIA860 including nameplate capacity and stack heights. **ASSUMPTION:** Since annual emissions/generation data are by plant, each generator in a plant has the same marginal emissions. **ASSUMPTION:** Every generator in a plant has the average height of all stacks reported for that plant. **ASSUMPTION:** Generators with no stack height data are assumed to have stack heights of 150m.
 
+2/18/2021-2/22/2021
+> Finished processing the final CSV with marginal health costs ($/MWh) for each plant. 
+
+2/19/2021
+> **My Realization:** the EIA emission/generation data is *very* incomplete. Should have checked beforehand? Yes. **Needed update:** Get emission data from another source (maybe eGRID or directly from CEMS). Overall program should be very similar, but data sources and *possibly* data-level (plant versus generator) will need to be changed for the entire script.
+
 ## Use
+
+This module is used for processing and accessing marginal health costs ($/MWh) for power plants across the United States. Running `easiur.py` will generate the `marginalHealthCosts.csv` which holds the important data for this module. The public interface of this module should consist only of the `getMarginalHealthCosts` function. 
+
+### Example:
+
+    from easiur import getMarginalHealthCosts
+    import numpy as np 
+
+    # input variables
+    season = 'Annual'
+    plantCodes = np.array([7,8,9,10])
+
+    # correct usage
+    marginalHealthCosts = getMarginalHealthCosts(plantCodes, season)
+
+    # output
+    print(marginalHealthCosts)
+
+    
+**Note:** `season` can be any of `Annual`, `Spring`, `Summer`, `Fall`, or `Winter`.
 
 
 
 ## Data Sources
 
-**Sample data is already included**, but the descriptions of each dataset, and the steps taken to get them, are outlined below.
+**Sample data is already processed in `marginalHealthCosts.csv`**, but the descriptions of each dataset, and the steps taken to get them, are outlined below.
 
 ### EASIUR:
 >"The Estimating Air pollution Social Impact Using Regression (EASIUR) model is an easy-to-use tool estimating the social cost (or public health cost) of emissions in the United States. The EASIUR model was derived using regression on a large dataset created by CAMx, a state-of-the-art chemical transport model. The EASIUR closely reproduce the social costs of emissions predicted by full CAMx simulations but without the high computational costs." 
