@@ -145,7 +145,7 @@ def getMarginalHealthCosts(plantCodes,season):
 
     for i in range(len(plantCodes)):
         if not plantCodes[i] in mhcPlantCodes:
-            marginalHealthCost[i] = 20
+            marginalHealthCost[i] = np.nan
         else:
             marginalHealthCost[i] = mhcValues[mhcPlantCodes == plantCodes[i]]
 
