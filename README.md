@@ -17,9 +17,9 @@ Code by ijbd
 2/19/2021
 > **My Realization:** the EIA emission/generation data is *very* incomplete. Should have checked beforehand? Yes. **Needed update:** Get emission data from another source (maybe eGRID or directly from CEMS). Overall program should be very similar, but data sources and *possibly* data-level (plant versus generator) will need to be changed for the entire script.
 
-## Use
+## Interface
 
-This module is used for processing and accessing marginal health costs ($/MWh) for power plants across the United States. Running `easiur.py` will generate the `marginalHealthCosts.csv` which holds the important data for this module. The public interface of this module should consist only of the `getMarginalHealthCosts` function. 
+This module is used for processing and accessing marginal health costs ($/MWh) for power plants across the United States. Running `easiur.py` will generate the `marginalHealthCosts.csv` which holds the desired MHC data. The public interface of this module should consist only of the `getMarginalHealthCosts` function. 
 
 ### Example:
 
