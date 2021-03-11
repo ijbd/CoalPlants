@@ -3,9 +3,9 @@ import pandas as pd
 import os, sys 
 
 MODULE_PATH     = os.path.dirname(__file__)
-EIA_PLANT_FILE  = os.path.join(MODULE_PATH,'data/eia8602019/2___Plant_Y2019.xlsx')
+EIA_GENERATOR_FILE  = os.path.join(MODULE_PATH,'data/eia8602019/3_1_Generator_Y2019.xlsx')
 EIA_ENVIRO_FILE = os.path.join(MODULE_PATH,'data/eia8602019/6_2_EnviroEquip_Y2019.xlsx')
-EMISSIONS_FILE  = os.path.join(MODULE_PATH,'data/emissions/emissions2019.xlsx')
+EMISSIONS_FILE = os.path.join(MODULE_PATH,'data/emissions/egrid2019_data.xlsx')
 EASIUR_FILE     = os.path.join(MODULE_PATH,'data/easiur_msc/msc_per_ton_by_plant.csv')
 OUTPUT_FILE     = os.path.join(MODULE_PATH,'marginalHealthCosts.csv')
 
@@ -15,10 +15,13 @@ INFLATION_RATE = 1.2 # 2010 USD to 2020 USD
 def getPlants():
 
     # Open files
-    plants = pd.read_excel(EIA_PLANT_FILE,skiprows=1,usecols=["Plant Code"])
+    generators = pd.read_excel(EIA_GENERATOR_FILE,skiprows=1,usecols=["Plant Code","Technology","Nameplate Capacity (MW)","Status"])
+    generators = generators[generators["Status"] == 'OP']
+    generators = generators[(~generators["Technology"].isin(["Solar Photovoltaic", "Nuclear", "Onshore Wind Turbine", "Offshore Wind Turbine", "Batteries",
+                                                                "Conventional Hydroelectric", "Hydroelectric Pumped Storage"]))]
 
     # numpy
-    plantCodes = plants['Plant Code'].values.astype(int)
+    plantCodes = np.unique(generators['Plant Code'].values.astype(int))
 
     # get stack height (m)
     genStack = np.zeros(len(plantCodes))
@@ -40,45 +43,34 @@ def getPlants():
 
     return plantCodes, genStack
 
-def getMarginalCosts(plantCodes, genIDs):
-    margCost = None 
+def getEmissions(plantCodes):
+    emissions = pd.read_excel(EMISSIONS_FILE,sheet_name='PLNT19',skiprows=1,usecols=['ORISPL','PLNGENAN','PLNOXAN','PLSO2AN'])
+    emissionsPlantCodes = emissions['ORISPL'].values.astype(int)
 
-    return margCost
+    generation = emissions['PLNGENAN'].values
+    NOx_mtonnes = emissions['PLNOXAN'].values * .907
+    SO2_mtonnes = emissions['PLSO2AN'].values * .907
 
-def getEmissionsImpl(plantCodes, species):
-    emissions = pd.read_excel(EMISSIONS_FILE,sheet_name=species,skiprows=1,usecols=['Plant Code','Selected {} Emissions (Metric Tonnes)'.format(species)])
-    mask = emissions['Plant Code'].str.isdigit().fillna(True)
-    emissions = emissions[mask]
-    emissionsPlantCodes = emissions['Plant Code'].values.astype(int) # ignore the two information cells at the bottom
-    emissions = emissions['Selected {} Emissions (Metric Tonnes)'.format(species)].values.astype(float)
+    plantGeneration = np.zeros(len(plantCodes))
+    SO2_emissions = np.zeros(len(plantCodes))
+    NOx_emissions = np.zeros(len(plantCodes))
 
-    # map to plants
-    plantEmissions = np.zeros(len(plantCodes))
     for i in range(len(plantCodes)):
         if plantCodes[i] in emissionsPlantCodes:
-            plantEmissions[i] = np.sum(emissions[emissionsPlantCodes == plantCodes[i]])
-        else:
-            plantEmissions[i] = np.nan
-    return plantEmissions
-
-def getEmissions(plantCodes):
-    emissions = pd.read_excel(EMISSIONS_FILE,sheet_name='SO2',skiprows=1,usecols=['Plant Code','Generation (kWh)'])
-    mask = emissions['Plant Code'].str.isdigit().fillna(True)
-    emissions = emissions[mask]
-    generationPlantCodes = emissions['Plant Code'].values.astype(int) # ignore the two information cells at the bottom
-    generation = emissions['Generation (kWh)'].values.astype(float)/1e3
-
-    # map to plants
-    plantGeneration = np.zeros(len(plantCodes))
-    for i in range(len(plantCodes)):
-        if plantCodes[i] in generationPlantCodes:
-            plantGeneration[i] = np.sum(generation[generationPlantCodes == plantCodes[i]])
+            plantGeneration[i] = np.sum(generation[emissionsPlantCodes == plantCodes[i]])
+            NOx_emissions[i] = np.sum(NOx_mtonnes[emissionsPlantCodes == plantCodes[i]])
+            SO2_emissions[i] = np.sum(SO2_mtonnes[emissionsPlantCodes == plantCodes[i]])
         else:
             plantGeneration[i] = np.nan
+            NOx_emissions[i] = np.nan
+            SO2_emissions[i] = np.nan
 
+    # remove bad datum
+    SO2_emissions[plantGeneration < 0] = np.nan
+    NOx_emissions[plantGeneration < 0] = np.nan
     plantGeneration[plantGeneration < 0] = np.nan
 
-    return plantGeneration, getEmissionsImpl(plantCodes, 'SO2'), getEmissionsImpl(plantCodes, 'NOx')
+    return plantGeneration, SO2_emissions, NOx_emissions
 
 def getEasiur(plantCodes, genStack, season):
     
@@ -124,7 +116,7 @@ def getEasiur(plantCodes, genStack, season):
 
     return margCostPerTonSO2 * INFLATION_RATE, margCostPerTonNOx * INFLATION_RATE
 
-def getMarginalHealthCosts(plantCodes,season):
+def getMarginalHealthCosts(plantCodes,season='Annual',asarray=False):
     '''Get marginal health costs ($/MWh) for plants across the United States. All data processing should be done separately from this function call. This function provides an abstraction for accessing m.h.c. data from this module's underlying csv.
     
     Arguments:
@@ -149,7 +141,10 @@ def getMarginalHealthCosts(plantCodes,season):
         else:
             marginalHealthCost[i] = mhcValues[mhcPlantCodes == plantCodes[i]]
 
-    return marginalHealthCost
+    if asarray:
+        return marginalHealthCost
+        
+    return pd.DataFrame(data=marginalHealthCost, index=plantCodes, columns=['Marginal Health Cost ($/MWh)'])
 
 def main():
     ''' Generate the CSV file of plant codes, generator IDs and MHC [$/MWh]. This should only be run as main (not from a module) in order to preserve the abstract interface :)
@@ -178,6 +173,7 @@ def main():
     plants['Marginal Health Cost; Summer ($ per MWh)'] = plants['Marginal Emissions Damages SO2; Summer ($ per M.Tonne)']*plants['Marginal SO2 Emissions (M.Tonnes per MWh)'] + plants['Marginal Emissions Damages NOx; Summer ($ per M.Tonne)']*plants['Marginal NOx Emissions (M.Tonnes per MWh)']
     plants['Marginal Health Cost; Fall ($ per MWh)'] = plants['Marginal Emissions Damages SO2; Fall ($ per M.Tonne)']*plants['Marginal SO2 Emissions (M.Tonnes per MWh)'] + plants['Marginal Emissions Damages NOx; Fall ($ per M.Tonne)']*plants['Marginal NOx Emissions (M.Tonnes per MWh)']
     plants['Marginal Health Cost; Winter ($ per MWh)'] = plants['Marginal Emissions Damages SO2; Winter ($ per M.Tonne)']*plants['Marginal SO2 Emissions (M.Tonnes per MWh)'] + plants['Marginal Emissions Damages NOx; Winter ($ per M.Tonne)']*plants['Marginal NOx Emissions (M.Tonnes per MWh)']
+    
     
     # save to file
     plants.to_csv(OUTPUT_FILE)
