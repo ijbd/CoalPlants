@@ -17,11 +17,14 @@ Code by ijbd
 2/23/2021-3/1/2021
 > Found a large numbers of plants without emissions data. Switched to eGRID emissions data, which has a larger number of plants, but found the same issue. **Solution:** Filtered out renewable plants. After applying that filter, the script produced valid marginal health costs for 2881 of 3372 conventional (fossil fuel) plants. 
 
+3/11/2021-3/12/2021
+> Some basic updates to maintain consistency with coal plants modular. Return pandas DataFrame and accept pandas Series of plant codes (numpy array still accepted).
+
 ## Interface
 
 This module is used for processing and accessing marginal health costs ($/MWh) for power plants across the United States. Running `easiur.py` will generate the `marginalHealthCosts.csv` which holds the desired plant-level marginal health cost data. **This has already been done for you.** The public interface of this module should consist of only the `getMarginalHealthCosts` function. 
 
-`getMarginalHealthCosts` will return health damages per conventional generation ($/MWh) for given ORIS plant codes. The input should be a numpy array with valid plant codes for coal, natural-gas, or petroleum generators. This function returns a pandas dataframe indexed by the plant code with marginal health costs. Invalid plant codes, or plant codes for which data is missing, are returned with `np.nan` values in the dataframe. To instead return a parallel numpy array, use the `asarray` indicator.
+`getMarginalHealthCosts` will return health damages per conventional generation ($/MWh) for given ORIS plant codes. The input should be a numpy array with valid plant codes for coal, natural-gas, or petroleum generators. This function returns a pandas dataframe indexed by the plant code with marginal health costs. Invalid plant codes, or plant codes for which data is missing, are returned with `np.nan` values in the dataframe. 
 
 ### Example:
 

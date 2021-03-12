@@ -116,18 +116,21 @@ def getEasiur(plantCodes, genStack, season):
 
     return margCostPerTonSO2 * INFLATION_RATE, margCostPerTonNOx * INFLATION_RATE
 
-def getMarginalHealthCosts(plantCodes,season='Annual',asarray=False):
+def getMarginalHealthCosts(plantCodes,season='Annual'):
     '''Get marginal health costs ($/MWh) for plants across the United States. All data processing should be done separately from this function call. This function provides an abstraction for accessing m.h.c. data from this module's underlying csv.
     
     Arguments:
     ----------
-    `plantCodes` (ndarray) : Numpy array of integer plant codes
+    `plantCodes` (ndarray or pd.Series) : Numpy array of integer plant codes
     `season` (str) : Season of underlying marginal health costs provided by EASIUR [`Annual`|`Spring`|`Summer`|`Fall`|`Winter`]
-
+    
     Returns:
     ----------
-    `marginalHealthCosts` (ndarray) : Numpy array of health damages ($) per generation (MWh) at a certain plant code. Plants with incomplete data return 'na' cells;
+    `marginalHealthCosts` (dataFrame) : DataFrame (plant-indexed) of health damages ($) per generation (MWh) at a certain plant code. Plants with incomplete data return 'na' cells;
     '''
+
+    if isinstance(plantCodes, pd.Series):
+        plantCodes = plantCodes.values
 
     mhc = pd.read_csv(OUTPUT_FILE,usecols=['Plant Code','Marginal Health Cost; {} ($ per MWh)'.format(season)])
     mhcPlantCodes = mhc['Plant Code'].values.astype(int)
@@ -141,8 +144,6 @@ def getMarginalHealthCosts(plantCodes,season='Annual',asarray=False):
         else:
             marginalHealthCost[i] = mhcValues[mhcPlantCodes == plantCodes[i]]
 
-    if asarray:
-        return marginalHealthCost
         
     return pd.DataFrame(data=marginalHealthCost, index=plantCodes, columns=['Marginal Health Cost ($/MWh)'])
 
