@@ -6,7 +6,6 @@ from easiur import getEmissionsMultiYearAverage
 MODULE_PATH     = os.path.dirname(__file__)
 EIA_PLANT_FILE = os.path.join(MODULE_PATH,'data/eia8602019/2___Plant_Y2019.xlsx')
 EIA_GENERATOR_FILE  = os.path.join(MODULE_PATH,'data/eia8602019/3_1_Generator_Y2019.xlsx')
-GENERATION_FILE = os.path.join(MODULE_PATH,'data/egrid/egrid2019_data.xlsx')
 
 def getCoalPlants(region):
     ''' getCoalPlants: Find all coal plants in a given NERC region of balancing authority.

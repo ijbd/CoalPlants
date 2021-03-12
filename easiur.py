@@ -5,7 +5,7 @@ import os, sys
 MODULE_PATH     = os.path.dirname(__file__)
 EIA_GENERATOR_FILE  = os.path.join(MODULE_PATH,'data/eia8602019/3_1_Generator_Y2019.xlsx')
 EIA_ENVIRO_FILE = os.path.join(MODULE_PATH,'data/eia8602019/6_2_EnviroEquip_Y2019.xlsx')
-EMISSIONS_FILE = os.path.join(MODULE_PATH,'data/emissions/egrid2019_data.xlsx')
+EGRID_FOLDER = os.path.join(MODULE_PATH,'data/egrid')
 EASIUR_FILE     = os.path.join(MODULE_PATH,'data/easiur_msc/msc_per_ton_by_plant.csv')
 OUTPUT_FILE     = os.path.join(MODULE_PATH,'data/easiur_msc/marginalHealthCosts.csv')
 
@@ -43,21 +43,16 @@ def getPlants():
 
     return plantCodes, genStack
 
-def getEmissions(plantCodes, year=2019, generation_only=False):
+def getEmissions(plantCodes, year=2019):
     # valid data years
-    assert(year in [2010,2012,2014,2016,2018,2019])
-
-    # different file formatting
-    skiprows = {2019 : 1, 
-                2018 : 1, 
-                2016 : 1,
-                2014 : 1,
-                2012 : 4,
-                2010 : 4
-                }
+    assert(year in [2012,2014,2016,2018,2019])
 
     # read data
-    emissions = pd.read_excel(EMISSIONS_FILE,sheet_name='PLNT{}'.format(year-2000),skiprows=skiprows[year],usecols=['ORISPL','PLNGENAN','PLNOXAN','PLSO2AN'])
+    emissionsFilename = os.path.join(EGRID_FOLDER,'egrid{}_data.xlsx'.format(year))
+    emissions = pd.read_excel(  emissionsFilename,
+                                sheet_name='PLNT{}'.format(year-2000),
+                                skiprows= 4 if year == 2012 else 1, # different file formatting for 2012
+                                usecols=['ORISPL','PLNGENAN','PLNOXAN','PLSO2AN'])
     emissionsPlantCodes = emissions['ORISPL'].values.astype(int)
 
     # conversions 
@@ -92,7 +87,7 @@ def getEmissions(plantCodes, year=2019, generation_only=False):
 
     return plantGeneration, SO2_emissions, NOx_emissions
 
-def getEmissionsMultiYearAverage(plantCodes,years, generation_only):
+def getEmissionsMultiYearAverage(plantCodes,years, generation_only=False):
     # check for single year
     if(isinstance(years,int)):
         return getEmissions(plantCodes,years)
@@ -115,6 +110,9 @@ def getEmissionsMultiYearAverage(plantCodes,years, generation_only):
     NOx_emissions = np.average(NOx_emissions,axis=0)
 
     assert(len(plantGeneration) == len(plantCodes))
+
+    if generation_only:
+        return plantGeneration
 
     return plantGeneration, SO2_emissions, NOx_emissions
     
