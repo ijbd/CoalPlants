@@ -7,7 +7,7 @@ EIA_GENERATOR_FILE  = os.path.join(MODULE_PATH,'data/eia8602019/3_1_Generator_Y2
 EIA_ENVIRO_FILE = os.path.join(MODULE_PATH,'data/eia8602019/6_2_EnviroEquip_Y2019.xlsx')
 EMISSIONS_FILE = os.path.join(MODULE_PATH,'data/emissions/egrid2019_data.xlsx')
 EASIUR_FILE     = os.path.join(MODULE_PATH,'data/easiur_msc/msc_per_ton_by_plant.csv')
-OUTPUT_FILE     = os.path.join(MODULE_PATH,'marginalHealthCosts.csv')
+OUTPUT_FILE     = os.path.join(MODULE_PATH,'data/easiur_msc/marginalHealthCosts.csv')
 
 DEFAULT_STACK_HEIGHT = 150 # none, 0, 150, or 300
 INFLATION_RATE = 1.2 # 2010 USD to 2020 USD
@@ -43,18 +43,34 @@ def getPlants():
 
     return plantCodes, genStack
 
-def getEmissions(plantCodes):
-    emissions = pd.read_excel(EMISSIONS_FILE,sheet_name='PLNT19',skiprows=1,usecols=['ORISPL','PLNGENAN','PLNOXAN','PLSO2AN'])
+def getEmissions(plantCodes, year=2019, generation_only=False):
+    # valid data years
+    assert(year in [2010,2012,2014,2016,2018,2019])
+
+    # different file formatting
+    skiprows = {2019 : 1, 
+                2018 : 1, 
+                2016 : 1,
+                2014 : 1,
+                2012 : 4,
+                2010 : 4
+                }
+
+    # read data
+    emissions = pd.read_excel(EMISSIONS_FILE,sheet_name='PLNT{}'.format(year-2000),skiprows=skiprows[year],usecols=['ORISPL','PLNGENAN','PLNOXAN','PLSO2AN'])
     emissionsPlantCodes = emissions['ORISPL'].values.astype(int)
 
+    # conversions 
     generation = emissions['PLNGENAN'].values
     NOx_mtonnes = emissions['PLNOXAN'].values * .907
     SO2_mtonnes = emissions['PLSO2AN'].values * .907
 
+    # empty containers
     plantGeneration = np.zeros(len(plantCodes))
     SO2_emissions = np.zeros(len(plantCodes))
     NOx_emissions = np.zeros(len(plantCodes))
 
+    # fill
     for i in range(len(plantCodes)):
         if plantCodes[i] in emissionsPlantCodes:
             plantGeneration[i] = np.sum(generation[emissionsPlantCodes == plantCodes[i]])
@@ -70,8 +86,38 @@ def getEmissions(plantCodes):
     NOx_emissions[plantGeneration < 0] = np.nan
     plantGeneration[plantGeneration < 0] = np.nan
 
+    # helper function
+    if generation_only:
+        return plantGeneration
+
     return plantGeneration, SO2_emissions, NOx_emissions
 
+def getEmissionsMultiYearAverage(plantCodes,years, generation_only):
+    # check for single year
+    if(isinstance(years,int)):
+        return getEmissions(plantCodes,years)
+
+
+    assert(isinstance(years,(list,np.ndarray,tuple)))
+
+    # init container
+    plantGeneration = np.zeros((len(years),len(plantCodes)))
+    SO2_emissions = np.zeros((len(years),len(plantCodes)))
+    NOx_emissions = np.zeros((len(years),len(plantCodes)))
+
+    # fill
+    for i in range(len(years)):
+
+        plantGeneration[i], SO2_emissions[i], NOx_emissions[i] = getEmissions(plantCodes,years[i],generation_only)
+
+    plantGeneration = np.average(plantGeneration,axis=0)
+    SO2_emissions = np.average(SO2_emissions,axis=0)
+    NOx_emissions = np.average(NOx_emissions,axis=0)
+
+    assert(len(plantGeneration) == len(plantCodes))
+
+    return plantGeneration, SO2_emissions, NOx_emissions
+    
 def getEasiur(plantCodes, genStack, season):
     
     assert(season == 'Annual' or season == 'Spring' or season == 'Summer' or season == 'Fall' or season == 'Winter')
@@ -147,7 +193,7 @@ def getMarginalHealthCosts(plantCodes,season='Annual'):
         
     return pd.DataFrame(data=marginalHealthCost, index=plantCodes, columns=['Marginal Health Cost ($/MWh)'])
 
-def main():
+def main(years=2019):
     ''' Generate the CSV file of plant codes, generator IDs and MHC [$/MWh]. This should only be run as main (not from a module) in order to preserve the abstract interface :)
     '''
     if __name__ != '__main__':
@@ -159,7 +205,7 @@ def main():
     # plant data
     plants['Plant Code'], plants['Stack Height (m)'] = getPlants()
     # emissions and generation data
-    plants['Annual Plant Generation (MWh)'], plants['Annual Plant SO2 Emissions (M.Tonnes)'], plants['Annual Plant NOx Emissions (M.Tonnes)'] = getEmissions(plants['Plant Code'].values)
+    plants['Annual Plant Generation (MWh)'], plants['Annual Plant SO2 Emissions (M.Tonnes)'], plants['Annual Plant NOx Emissions (M.Tonnes)'] = getEmissionsMultiYearAverage(plants['Plant Code'].values,years)
     plants['Marginal SO2 Emissions (M.Tonnes per MWh)'] = plants['Annual Plant SO2 Emissions (M.Tonnes)']/plants['Annual Plant Generation (MWh)']
     plants['Marginal NOx Emissions (M.Tonnes per MWh)'] = plants['Annual Plant NOx Emissions (M.Tonnes)']/plants['Annual Plant Generation (MWh)']
     # marginal easiur costs
@@ -175,9 +221,8 @@ def main():
     plants['Marginal Health Cost; Fall ($ per MWh)'] = plants['Marginal Emissions Damages SO2; Fall ($ per M.Tonne)']*plants['Marginal SO2 Emissions (M.Tonnes per MWh)'] + plants['Marginal Emissions Damages NOx; Fall ($ per M.Tonne)']*plants['Marginal NOx Emissions (M.Tonnes per MWh)']
     plants['Marginal Health Cost; Winter ($ per MWh)'] = plants['Marginal Emissions Damages SO2; Winter ($ per M.Tonne)']*plants['Marginal SO2 Emissions (M.Tonnes per MWh)'] + plants['Marginal Emissions Damages NOx; Winter ($ per M.Tonne)']*plants['Marginal NOx Emissions (M.Tonnes per MWh)']
     
-    
     # save to file
     plants.to_csv(OUTPUT_FILE)
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv[1:])

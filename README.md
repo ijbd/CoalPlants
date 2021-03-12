@@ -1,4 +1,4 @@
-# EASIUR Python Integration Module
+# Coal Plants Python Integration Module
 Code by ijbd
 
 ## Updates
@@ -18,11 +18,42 @@ Code by ijbd
 > Found a large numbers of plants without emissions data. Switched to eGRID emissions data, which has a larger number of plants, but found the same issue. **Solution:** Filtered out renewable plants. After applying that filter, the script produced valid marginal health costs for 2881 of 3372 conventional (fossil fuel) plants. 
 
 3/11/2021-3/12/2021
-> Some basic updates to maintain consistency with coal plants modular. Return pandas DataFrame and accept pandas Series of plant codes (numpy array still accepted).
+> Some basic updates to maintain consistency with coal plants modular. Return pandas DataFrame and accept pandas Series of plant codes (numpy array still accepted). BEGAN PLANTS: Localized coal plant and generation data. Established interface. Finished implementation and interface. Tested with different regional inputs. **Currently:** getCoalGeneration returns 2019 generation.
 
 ## Interface
 
-This module is used for processing and accessing marginal health costs ($/MWh) for power plants across the United States. Running `easiur.py` will generate the `marginalHealthCosts.csv` which holds the desired plant-level marginal health cost data. **This has already been done for you.** The public interface of this module should consist of only the `getMarginalHealthCosts` function. 
+### PLANTS:
+
+There are two functions that should be included in the public interface of the plants module: `getCoalPlants` and `getPlantGeneration`.
+
+`getCoalPlants` takes in a region (or list of regions) as inputs these should be strings consistent with either NERC region or balancing authority codes as used in the EIA-860 dataset. This function returns a pandas dataframe with the 
+
+
+### Example:
+
+    from coalPlants import getCoalPlants, getCoalGeneration
+    
+There are a number of options for filtering plant codes depending on the application.
+
+    # get plants in a single balancing authority
+    balancingAuthority = 'PJM'
+    coalPlants = getCoalPlants(balancingAuthority)
+    
+    # get plants in a single NERC region
+    nercRegion = 'WECC'
+    coalPlants = getCoalPlants(nercRegion)
+
+    # get plants in multiple balancing authorities (combined)
+    balancingAuthorities = ['PJM', 'PACE', 'CISO']
+    coalPlants = getCoalPlants(balancingAuthorities)
+
+Get generation for each plant by providing either an array or pandas Series of plant codes.
+
+    coalGen = getPlantGeneration(coalPlants["Plant Code"])
+
+### EASIUR: 
+
+This Module also offers an interface for processing and accessing marginal health costs ($/MWh) for power plants across the United States. Running `easiur.py` will generate the `marginalHealthCosts.csv` which holds the desired plant-level marginal health cost data. **This has already been done for you.** The public interface of this module should consist of only the `getMarginalHealthCosts` function. 
 
 `getMarginalHealthCosts` will return health damages per conventional generation ($/MWh) for given ORIS plant codes. The input should be a numpy array with valid plant codes for coal, natural-gas, or petroleum generators. This function returns a pandas dataframe indexed by the plant code with marginal health costs. Invalid plant codes, or plant codes for which data is missing, are returned with `np.nan` values in the dataframe. 
 
