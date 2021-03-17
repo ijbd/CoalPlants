@@ -20,57 +20,77 @@ Code by ijbd
 3/11/2021-3/12/2021
 > Some basic updates to maintain consistency with coal plants modular. Return pandas DataFrame and accept pandas Series of plant codes (numpy array still accepted). BEGAN PLANTS: Localized coal plant and generation data. Established interface. Finished implementation and interface. Tested with different regional inputs. **Currently:** getCoalGeneration returns 2019 generation.
 
+3/13/2021-3/17/2021
+> Debug, test, and finalize. Finished interface, cleaning up documentation, and analysis of outputs. 
+
 ## Interface
 
 ### PLANTS:
 
-There are two functions that should be included in the public interface of the plants module: `getCoalPlants` and `getPlantGeneration`.
+There are three functions that should be included in the public interface of this module:
+1. `getCoalPlants`
+2. `getPlantGeneration`
+3. `getMarginalHealthCosts`. 
 
-`getCoalPlants` takes in a region (or list of regions) as inputs these should be strings consistent with either NERC region or balancing authority codes as used in the EIA-860 dataset. This function returns a pandas dataframe with the 
+**All returned pandas containers are indexed by ORIS plant code. Missing data are denoted by `np.nan`.**
 
+`getCoalPlants`: Input region(s) (`str` or `list`). Each region string should be consistent with either NERC region or balancing authority codes as found in the EIA-860 dataset. Returns ORIS codes, latitudes and longitudes of all coal plants in the region (`pd.DataFrame`).
 
-### Example:
+`getPlantGeneration`: Input ORIS codes (`int`, `np.ndarray`, or `pd.Series`) and years --OPTIONAL-- over which to average generation (`int` or `list`). By default, `years=2019`. Returns averaged annual plant generation in MWh (`pd.Series`). 
 
-    from coalPlants import getCoalPlants, getCoalGeneration
-    
-There are a number of options for filtering plant codes depending on the application.
-
-    # get plants in a single balancing authority
-    balancingAuthority = 'PJM'
-    coalPlants = getCoalPlants(balancingAuthority)
-    
-    # get plants in a single NERC region
-    nercRegion = 'WECC'
-    coalPlants = getCoalPlants(nercRegion)
-
-    # get plants in multiple balancing authorities (combined)
-    balancingAuthorities = ['PJM', 'PACE', 'CISO']
-    coalPlants = getCoalPlants(balancingAuthorities)
-
-Get generation for each plant by providing either an array or pandas Series of plant codes.
-
-    coalGen = getPlantGeneration(coalPlants["Plant Code"])
-
-### EASIUR: 
-
-This Module also offers an interface for processing and accessing marginal health costs ($/MWh) for power plants across the United States. Running `easiur.py` will generate the `marginalHealthCosts.csv` which holds the desired plant-level marginal health cost data. **This has already been done for you.** The public interface of this module should consist of only the `getMarginalHealthCosts` function. 
-
-`getMarginalHealthCosts` will return health damages per conventional generation ($/MWh) for given ORIS plant codes. The input should be a numpy array with valid plant codes for coal, natural-gas, or petroleum generators. This function returns a pandas dataframe indexed by the plant code with marginal health costs. Invalid plant codes, or plant codes for which data is missing, are returned with `np.nan` values in the dataframe. 
+`getMarginalHealthCosts`: Input ORIS codes (`int`, `np.ndarray`, or `pd.Series`), season (`str`) --OPTIONAL--, and years --OPTIONAL-- over which to average marginal emissions (`int` or `list`). Return health damages per conventional generation ($/MWh) for given ORIS plant codes (`pd.Series`).
 
 ### Example:
 
-    from easiur import getMarginalHealthCosts
-    import numpy as np 
+Given the following file structure:
 
-    # input variables
-    season = 'Annual'
-    plantCodes = np.array([7,8,9,10])
+    Project
+    |--main.py
 
-    # correct usage
-    marginalHealthCosts = getMarginalHealthCosts(plantCodes, season=season, asarray=true)
+Clone this module from your project directory:
 
-    # output
-    print(marginalHealthCosts)
+    git clone github.com/ijbd/coalPlants.git
+
+The updated file structure being:
+
+    Project
+    |--main.py
+    |--coalPlants
+        |--data
+        |--__init__.py
+        |--.gitignore
+        |--coalPlants.py
+        |--README.md
+    
+With this structure, `main.py` can use the functions from this module as follows:
+
+
+    #### main.py ####
+
+    from CoalPlants import CoalPlants
+
+    # Generate Pandas DataFrame with ORIS CODE, latitude, and longitude
+    plants = CoalPlants.getCoalPlants('PJM') 
+
+    # Only include 2019 generation
+    plants['2019 Generation (MWh)'] = CoalPlants.getPlantGeneration(plants['Plant Code'])
+
+    # Average over three years of generation
+    plants['Average Generation (MWh)'] = CoalPlants.getPlantGeneration(plants['Plant Code'],years=[2016,2018,2019])
+
+    # Marginal Health Costs
+    plants['Marginal Health Cost ($/MWh)'] = CoalPlants.getMarginalHealthCosts(plants['Plant Code'])
+
+    print(plants.head())
+
+The output from `main.py` is:
+    
+        Plant Code Latitude Longitude  2019 Generation (MWh)  Average Generation (MWh)  Marginal Health Cost ($/MWh)
+    54           54  37.8833  -84.1017             355649.995              3.245147e+05                      1.761732
+    384         384  41.4946  -88.1238            1419542.000              1.216354e+06                      9.999859
+    593         593  39.7389  -75.5038             137839.000              4.386617e+05                     19.178277
+    594         594  38.5857  -75.2341             121056.000              2.926673e+05                     98.335683
+    599         599  39.1762  -75.5466                  4.000              2.072967e+04                  30292.610596
 
     
 **Note:** `season` can be any of `Annual`, `Spring`, `Summer`, `Fall`, or `Winter`; but it defaults to 'Annual'
