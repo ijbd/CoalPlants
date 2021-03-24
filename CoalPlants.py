@@ -202,7 +202,7 @@ def getCoalPlants(regions):
     
     # open file 
     plants = pd.read_excel(EIA_PLANT_FILE,skiprows=1,usecols=['Plant Code', 'Latitude', 'Longitude','NERC Region','Balancing Authority Code'])
-    generators = pd.read_excel(EIA_GENERATOR_FILE,skiprows=1,usecols=["Plant Code","Technology","Status"])
+    generators = pd.read_excel(EIA_GENERATOR_FILE,skiprows=1,usecols=["Plant Code","Technology","Status","Nameplate Capacity (MW)"])
 
     # get plant codes in region
     if not 'ALL' in regions:
@@ -211,11 +211,13 @@ def getCoalPlants(regions):
 
     # filter for coal generators
     generators = generators[generators['Status'] == 'OP']
-    #generators = generators[generators['Technology'].str.contains('Coal')]
-    generators = generators[(~generators['Technology'].isin(["Solar Photovoltaic", "Onshore Wind Turbine", "Offshore Wind Turbine", "Batteries", "Conventional Hydroelectric", "Hydroelectric Pumped Storage", "Nuclear"]))]
+    coalGenerators = generators[generators['Technology'].str.contains('Coal')]    
 
     # final filter; should include only plants with coal generators in the correct region
-    plants = plants[plants['Plant Code'].isin(generators['Plant Code'])]
+    plants = plants[plants['Plant Code'].isin(coalGenerators['Plant Code'])]
+
+    plants['Plant Capacity (MW)'] = [np.sum(generators["Nameplate Capacity (MW)"][generators['Plant Code'] == pc].values) for pc in plants['Plant Code']]
+    plants['Coal Capacity (MW)'] = [np.sum(coalGenerators["Nameplate Capacity (MW)"][coalGenerators['Plant Code'] == pc].values) for pc in plants['Plant Code']]
 
     plants.set_index(plants['Plant Code'].values,inplace=True)
 
