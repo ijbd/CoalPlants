@@ -25,8 +25,6 @@ Code by ijbd
 
 ## Interface
 
-### PLANTS:
-
 There are three functions that should be included in the public interface of this module:
 1. `getCoalPlants`
 2. `getPlantGeneration`
@@ -126,4 +124,4 @@ Available [here](https://www.eia.gov/electricity/data/eia860/) [4].
 
 [3] Environmental Protection Agency (2019) "Emissions and Generation Resource Integrated Database" 
 
-[4]  Energy Information Administration, Form EIA-930 User Guide Known Issues (2020).550
+[4] Energy Information Administration, Form EIA-930 User Guide Known Issues (2020).550
