@@ -83,12 +83,12 @@ With this structure, `main.py` can use the functions from this module as follows
 
 The output from `main.py` is:
     
-        Plant Code Latitude Longitude  2019 Generation (MWh)  Average Generation (MWh)  Marginal Health Cost ($/MWh)
-    54           54  37.8833  -84.1017             355649.995              3.245147e+05                      1.761732
-    384         384  41.4946  -88.1238            1419542.000              1.216354e+06                      9.999859
-    593         593  39.7389  -75.5038             137839.000              4.386617e+05                     19.178277
-    594         594  38.5857  -75.2341             121056.000              2.926673e+05                     98.335683
-    599         599  39.1762  -75.5466                  4.000              2.072967e+04                  30292.610596
+            Plant Code Latitude Longitude  ...  2019 Generation (MWh)  Average Generation (MWh)  Marginal Health Cost ($/MWh)
+        594         594  38.5857  -75.2341  ...               121056.0              2.926673e+05                     98.335683
+        602         602    39.18  -76.5389  ...              2231445.0              3.901454e+06                     36.019982
+        876         876  39.5906  -89.4964  ...              3114921.0              4.066159e+06                     19.260995
+        879         879  40.5408  -89.6786  ...              2334751.0              3.798617e+06                     31.785532
+        883         883  42.3833  -87.8133  ...              1193868.0              1.534654e+06                     52.995870
 
     
 **Note:** `season` can be any of `Annual`, `Spring`, `Summer`, `Fall`, or `Winter`; but it defaults to 'Annual'

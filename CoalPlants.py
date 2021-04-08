@@ -175,7 +175,7 @@ def getMarginalHealthCosts(plantCodes,season='Annual',years=2019):
     plantStackHeights = _getStackHeight(plantCodes)
     # emissions and generation data [MWh], [m.ton], [m.ton]
     plantGen, plantSO2Emissions, plantNOxEmissions = _getEmissionsMultiYearAverage(plantCodes,years)
-    # marginal emissions [m.ton] / [MWh] [m.ton / MWh]
+    # marginal emissions [m.ton] / [MWh] = [m.ton / MWh]
     plantMarginalSO2Emissions = plantSO2Emissions/plantGen
     plantMarginalNOxEmissions = plantNOxEmissions/plantGen
     # marginal emissions costs [$ / m.ton]
@@ -185,12 +185,13 @@ def getMarginalHealthCosts(plantCodes,season='Annual',years=2019):
             
     return pd.Series(data=plantMarginalHealthCost, index=plantCodes)
 
-def getCoalPlants(regions):
+def getCoalPlants(regions,all_thermal=False):
     ''' getCoalPlants: Find all coal plants in a given NERC region of balancing authority.
 
     Args:
     --------
     `region` (str or list): all NERC regions or balancing authorities to include
+    `all_thermal` (bool): All thermal generators (not just coal).
 
     Return:
     --------
@@ -211,7 +212,12 @@ def getCoalPlants(regions):
 
     # filter for coal generators
     generators = generators[generators['Status'] == 'OP']
-    coalGenerators = generators[generators['Technology'].str.contains('Coal')]    
+
+    if all_thermal:
+        generators = generators[(~generators["Technology"].isin(["Solar Photovoltaic", "Onshore Wind Turbine", "Offshore Wind Turbine", "Batteries","Nuclear","Conventional Hydroelectric","Hydroelectric Pumped Storage"]))]
+        return plants[plants['Plant Code'].isin(generators['Plant Code'])]
+    else:
+        coalGenerators = generators[generators['Technology'].str.contains('Coal')]    
 
     # final filter; should include only plants with coal generators in the correct region
     plants = plants[plants['Plant Code'].isin(coalGenerators['Plant Code'])]
