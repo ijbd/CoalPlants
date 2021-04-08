@@ -216,8 +216,8 @@ def getCoalPlants(regions):
     # final filter; should include only plants with coal generators in the correct region
     plants = plants[plants['Plant Code'].isin(coalGenerators['Plant Code'])]
 
-    plants['Plant Capacity (MW)'] = [np.sum(generators["Nameplate Capacity (MW)"][generators['Plant Code'] == pc].values) for pc in plants['Plant Code']]
-    plants['Coal Capacity (MW)'] = [np.sum(coalGenerators["Nameplate Capacity (MW)"][coalGenerators['Plant Code'] == pc].values) for pc in plants['Plant Code']]
+    plants['Plant Total Capacity (MW)'] = [np.sum(generators["Nameplate Capacity (MW)"][generators['Plant Code'] == pc].values) for pc in plants['Plant Code']]
+    plants['Plant Coal Capacity (MW)'] = [np.sum(coalGenerators["Nameplate Capacity (MW)"][coalGenerators['Plant Code'] == pc].values) for pc in plants['Plant Code']]
 
     plants.set_index(plants['Plant Code'].values,inplace=True)
 
