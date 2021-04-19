@@ -8,149 +8,93 @@ EIA_GENERATOR_FILE  = os.path.join(MODULE_PATH,'data/eia8602019/3_1_Generator_Y2
 EIA_ENVIRO_FILE = os.path.join(MODULE_PATH,'data/eia8602019/6_2_EnviroEquip_Y2019.xlsx')
 EGRID_FOLDER = os.path.join(MODULE_PATH,'data/egrid')
 EASIUR_FILE     = os.path.join(MODULE_PATH,'data/easiur/msc_per_ton_by_plant.csv')
+EIA_923_FILE = os.path.join(MODULE_PATH,'data/eia923/EIA923GenFuel.csv')
 
 DEFAULT_STACK_HEIGHT = 150 # none, 0, 150, or 300
 INFLATION_RATE = 1.2 # 2010 USD to 2020 USD
 
-def _getStackHeight(plantCodes):
-    # get stack height (m)
-    genStack = np.zeros(len(plantCodes))
+COAL_PFT = ['BIT','RC','SC','SGC','LIG','SUB','WC']
 
-    stacks = pd.read_excel(EIA_ENVIRO_FILE,skiprows=1,sheet_name='Stack Flue',usecols=['Plant Code','Stack Height (Feet)'])
+def _getStackHeight(plantCodes):
+
+    plantCodes = plantCodes.values if isinstance(plantCodes,pd.Series) else plantCodes
+
+    # get stack height (m)
+    stackHeight = pd.Series(data=np.ones(len(plantCodes))*DEFAULT_STACK_HEIGHT,
+                            index=plantCodes)
+
+    plants = pd.read_excel(EIA_ENVIRO_FILE,skiprows=1,sheet_name='Stack Flue',usecols=['Plant Code','Stack Height (Feet)'])
+
+    # convert to meters
+    plants['Stack Height (Feet)'].where(plants['Stack Height (Feet)'].astype(str) != ' ', -1, inplace=True)
+    plants['Stack Height'] = plants['Stack Height (Feet)'].astype(float)*.3048
+    plants.drop(columns=['Stack Height (Feet)'],inplace=True)
+    plants['Stack Height'].where(plants['Stack Height'] >= 0, DEFAULT_STACK_HEIGHT, inplace=True)
 
     # fill missing
-    stacks['Stack Height (Feet)'].where(stacks['Stack Height (Feet)'].astype(str) != ' ', 0, inplace=True)
+    plants = plants.groupby(['Plant Code']).mean()
+    stackHeight.loc[plants.index.intersection(plantCodes)] = plants.loc[plants.index.intersection(plantCodes),'Stack Height']
 
-    # map back to availabe plants
-    stackPlants = stacks['Plant Code'].values.astype(int)
-    stackHeights = stacks['Stack Height (Feet)'].values.astype(float)
-    for i in range(len(plantCodes)):
-        a = stackHeights[stackPlants == plantCodes[i]]
-        if len(a) > 0: 
-            genStack[i] = int(np.average(a)*.3048)
-        else:
-            genStack[i] = np.nan
+    return stackHeight
 
-    return genStack
+def _getEmissions(plantCodes):
 
-def _getEmissions(plantCodes, year=2019):
-    # valid data years
-    assert(year in [2012,2014,2016,2018,2019])
+    plantCodes = plantCodes.values if isinstance(plantCodes,pd.Series) else plantCodes
 
     # read data
-    emissionsFilename = os.path.join(EGRID_FOLDER,'egrid{}_data.xlsx'.format(year))
-    emissions = pd.read_excel(  emissionsFilename,
-                                sheet_name='PLNT{}'.format(year-2000),
-                                skiprows= 4 if year == 2012 else 1, # different file formatting for 2012
-                                usecols=['ORISPL','PLNGENAN','PLNOXAN','PLSO2AN'])
-    emissionsPlantCodes = emissions['ORISPL'].values.astype(int)
+    emissionsFilename = os.path.join(EGRID_FOLDER,'egrid2019_data.xlsx')
+    plants = pd.read_excel(  emissionsFilename,
+                                sheet_name='UNT19',
+                                skiprows=  1, # different file formatting for 2012
+                                usecols=['ORISPL','FUELU1','NOXAN','SO2AN'])
 
-    # conversions 
-    generation = emissions['PLNGENAN'].values
-    NOx_mtonnes = emissions['PLNOXAN'].values * .907
-    SO2_mtonnes = emissions['PLSO2AN'].values * .907
+    # filter
+    plants.dropna(inplace=True)
+    plants = plants[plants['FUELU1'].isin(COAL_PFT)]
 
-    # empty containers
-    plantGeneration = np.zeros(len(plantCodes))
-    SO2_emissions = np.zeros(len(plantCodes))
-    NOx_emissions = np.zeros(len(plantCodes))
+    # conversions tons -> metric tonnes
+    plants['NOXAN'] *= .907
+    plants['SO2AN'] *= .907
 
-    # fill
-    for i in range(len(plantCodes)):
-        if plantCodes[i] in emissionsPlantCodes:
-            plantGeneration[i] = np.sum(generation[emissionsPlantCodes == plantCodes[i]])
-            NOx_emissions[i] = np.sum(NOx_mtonnes[emissionsPlantCodes == plantCodes[i]])
-            SO2_emissions[i] = np.sum(SO2_mtonnes[emissionsPlantCodes == plantCodes[i]])
-        else:
-            plantGeneration[i] = np.nan
-            NOx_emissions[i] = np.nan
-            SO2_emissions[i] = np.nan
-
-    # remove bad datum
-    SO2_emissions[plantGeneration <= 0] = np.nan
-    NOx_emissions[plantGeneration <= 0] = np.nan
-    plantGeneration[plantGeneration <= 0] = np.nan
-
-    return plantGeneration, SO2_emissions, NOx_emissions
-
-def _getEmissionsMultiYearAverage(plantCodes,years,generation_only=False):
-    # check for single year
-    if(isinstance(years,int)):
-        plantGeneration, SO2_emissions, NOx_emissions = _getEmissions(plantCodes,years)
-        
-        if generation_only:
-            return plantGeneration
-
-        return plantGeneration, SO2_emissions, NOx_emissions
+    # aggregate and filter
+    plants = plants.groupby(['ORISPL']).sum()
+    plants = plants.loc[plants.index.intersection(plantCodes)]
     
-
-    assert(isinstance(years,(list,np.ndarray,tuple)))
-
-    # init container
-    plantGeneration = np.zeros((len(years),len(plantCodes)))
-    SO2_emissions = np.zeros((len(years),len(plantCodes)))
-    NOx_emissions = np.zeros((len(years),len(plantCodes)))
-
-    # fill
-    for i in range(len(years)):
-        plantGeneration[i], SO2_emissions[i], NOx_emissions[i] = _getEmissions(plantCodes,years[i])
-
-    plantGeneration = np.nanmean(plantGeneration,axis=0)
-    SO2_emissions = np.nanmean(SO2_emissions,axis=0)
-    NOx_emissions = np.nanmean(NOx_emissions,axis=0)
-
-    assert(len(plantGeneration) == len(plantCodes))
-
-    if generation_only:
-        return plantGeneration
-
-    return plantGeneration, SO2_emissions, NOx_emissions
+    return pd.Series(data=plants['SO2AN'].values,index=plants.index.values), pd.Series(data=plants['NOXAN'].values,index=plants.index.values)
     
-def _getEasiur(plantCodes, genStack, season):
+def _getEasiur(plantCodes, stackHeight, season):
     
     assert(season == 'Annual' or season == 'Spring' or season == 'Summer' or season == 'Fall' or season == 'Winter')
-    assert(DEFAULT_STACK_HEIGHT == None or DEFAULT_STACK_HEIGHT == 0 or DEFAULT_STACK_HEIGHT == 150 or DEFAULT_STACK_HEIGHT == 300)
+    
+    stackHeight = stackHeight.values if isinstance(stackHeight,pd.Series) else stackHeight
 
-    if DEFAULT_STACK_HEIGHT is not None:
-        genStack = np.where(np.isnan(genStack),DEFAULT_STACK_HEIGHT,genStack)
 
     # Filter
-    df = pd.read_csv(EASIUR_FILE,usecols=['Plant Code', 'SO2 {} Ground'.format(season),'SO2 {} 150m'.format(season),
+    df = pd.read_csv(EASIUR_FILE,usecols=['Plant Code','SO2 {} Ground'.format(season),'SO2 {} 150m'.format(season),
                                                 'SO2 {} 300m'.format(season),'NOX {} Ground'.format(season),
                                                 'NOX {} 150m'.format(season),'NOX {} 300m'.format(season)])
-    easiurPlantCodes = df['Plant Code'].values.astype(int)
-    SO2_ground = df['SO2 {} Ground'.format(season)].values
-    SO2_150m = df['SO2 {} 150m'.format(season)].values
-    SO2_300m = df['SO2 {} 300m'.format(season)].values
-    NOx_ground = df['NOX {} Ground'.format(season)].values
-    NOx_150m = df['NOX {} 150m'.format(season)].values
-    NOx_300m = df['NOX {} 300m'.format(season)].values
+    df.set_index('Plant Code',inplace=True)
 
     margCostPerTonSO2 = np.zeros(len(plantCodes))
     margCostPerTonNOx = np.zeros(len(plantCodes))
 
     for i in range(len(plantCodes)):
-        if np.isnan(genStack[i]):
-            mscSO2 = np.nan
-            mscNOx = np.nan
-        elif np.sum(easiurPlantCodes == plantCodes[i]) == 0:
-            mscSO2 = np.nan 
-            mscNOx = np.nan
-        elif genStack[i] < 75:
-            mscSO2 = SO2_ground[easiurPlantCodes == plantCodes[i]]
-            mscNOx = NOx_ground[easiurPlantCodes == plantCodes[i]]
-        elif genStack[i] < 225:
-            mscSO2 = SO2_150m[easiurPlantCodes == plantCodes[i]]
-            mscNOx = NOx_150m[easiurPlantCodes == plantCodes[i]]
-        elif genStack[i] >= 225:
-            mscSO2 = SO2_300m[easiurPlantCodes == plantCodes[i]]
-            mscNOx = NOx_300m[easiurPlantCodes == plantCodes[i]]
-        margCostPerTonSO2[i] = mscSO2
-        margCostPerTonNOx[i] = mscNOx
-
+        if not plantCodes[i] in df.index:
+            margCostPerTonSO2[i] = np.nan 
+            margCostPerTonNOx[i] = np.nan
+        elif stackHeight[i] < 75:
+            margCostPerTonSO2[i] = df.at[plantCodes[i],'SO2 {} Ground'.format(season)]
+            margCostPerTonNOx[i] = df.at[plantCodes[i],'NOX {} Ground'.format(season)]
+        elif stackHeight[i] < 225:
+            margCostPerTonSO2[i] = df.at[plantCodes[i],'SO2 {} 150m'.format(season)]
+            margCostPerTonNOx[i] = df.at[plantCodes[i],'NOX {} 150m'.format(season)]
+        else: 
+            margCostPerTonSO2[i] = df.at[plantCodes[i],'SO2 {} 300m'.format(season)]
+            margCostPerTonNOx[i] = df.at[plantCodes[i],'NOX {} 300m'.format(season)]
+        
     return margCostPerTonSO2 * INFLATION_RATE, margCostPerTonNOx * INFLATION_RATE
 
-def getMarginalHealthCosts(plantCodes,season='Annual',years=2019):
+def getMarginalHealthCosts(plantCodes,season='Annual'):
     '''Get marginal health costs ($/MWh) for plants across the United States. All data processing should be done separately from this function call. This function provides an abstraction for accessing m.h.c. data from this module's underlying csv.
     
     Arguments:
@@ -171,26 +115,29 @@ def getMarginalHealthCosts(plantCodes,season='Annual',years=2019):
     if isinstance(plantCodes,int):
         plantCodes = np.array([plantCodes])
 
+    plants = pd.DataFrame(index=plantCodes)
     # plant data
-    plantStackHeights = _getStackHeight(plantCodes)
+    plants['stack height'] = _getStackHeight(plantCodes)
     # emissions and generation data [MWh], [m.ton], [m.ton]
-    plantGen, plantSO2Emissions, plantNOxEmissions = _getEmissionsMultiYearAverage(plantCodes,years)
+    plants['generation'] = getPlantGeneration(plantCodes)
+    plants['SO2'], plants['NOx'] = _getEmissions(plantCodes)
     # marginal emissions [m.ton] / [MWh] = [m.ton / MWh]
-    plantMarginalSO2Emissions = plantSO2Emissions/plantGen
-    plantMarginalNOxEmissions = plantNOxEmissions/plantGen
+    plants['SO2 rate'] = plants['SO2']/plants['generation']
+    plants['NOx rate'] = plants['NOx']/plants['generation']
     # marginal emissions costs [$ / m.ton]
-    plantMarginalSO2EmissionsCost, plantMarginalNOxEmissionsCost = _getEasiur(plantCodes, plantStackHeights, 'Annual')
+    plants['SO2 cost'], plants['NOx cost'] = _getEasiur(plantCodes, plants['stack height'], 'Annual')
     # marginal health costs [$ / m.ton] * [m.ton / Mwh] = [$ / MWh]
-    plantMarginalHealthCost = plantMarginalSO2EmissionsCost*plantMarginalSO2Emissions + plantMarginalNOxEmissionsCost*plantMarginalNOxEmissions
+    plants['marginal health cost'] = plants['SO2 cost']*plants['SO2 rate'] + plants['NOx cost']*plants['NOx rate']
             
-    return pd.Series(data=plantMarginalHealthCost, index=plantCodes)
+    plants.to_csv('tmp_test_2.csv')
+    return pd.Series(data=plants['marginal health cost'].values, index=plantCodes)
 
-def getCoalPlants(regions,all_thermal=False):
-    ''' getCoalPlants: Find all coal plants in a given NERC region of balancing authority.
+def getCoalPlants(regions='ALL'):
+    ''' getCoalPlants: Get the coal plant ORIS codes, latitudes, longitude, and coal capacity.
 
     Args:
     --------
-    `region` (str or list): all NERC regions or balancing authorities to include
+    `regions` (str or list): all NERC regions, balancing authorities, or states to include e.g. 'PJM', 'WECC', 'NY
     `all_thermal` (bool): All thermal generators (not just coal).
 
     Return:
@@ -198,43 +145,38 @@ def getCoalPlants(regions,all_thermal=False):
     `plants` (DataFrame): Dataframe of plant codes, locations, balancing authority, and NERC region; indexed by plant code.
     '''
     # handle single str region
-    if isinstance(regions,str):
-        regions = [regions]
+    regions = [regions] if isinstance(regions,str) else regions
     
     # open file 
-    plants = pd.read_excel(EIA_PLANT_FILE,skiprows=1,usecols=['Plant Code', 'Latitude', 'Longitude','NERC Region','Balancing Authority Code'])
+    plants = pd.read_excel(EIA_PLANT_FILE,skiprows=1,usecols=['Plant Code', 'State', 'Latitude', 'Longitude','NERC Region','Balancing Authority Code'])
     generators = pd.read_excel(EIA_GENERATOR_FILE,skiprows=1,usecols=["Plant Code","Technology","Status","Nameplate Capacity (MW)"])
 
-    # get plant codes in region
-    if not 'ALL' in regions:
-        plants = plants[plants['NERC Region'].isin(regions) | plants['Balancing Authority Code'].isin(regions)]
-    plants.drop(columns=['NERC Region','Balancing Authority Code'],inplace=True)
+    # filter plants
+    plants = plants if 'ALL' in regions else plants[plants['NERC Region'].isin(regions) | plants['Balancing Authority Code'].isin(regions) |plants['State'].isin(regions)]
 
-    # filter for coal generators
+    # drop unnecessary
+    plants.drop(columns=['NERC Region','Balancing Authority Code','State'],inplace=True)
+
+    # filter generators
     generators = generators[generators['Status'] == 'OP']
-
-    if all_thermal:
-        generators = generators[(~generators["Technology"].isin(["Solar Photovoltaic", "Onshore Wind Turbine", "Offshore Wind Turbine", "Batteries","Nuclear","Conventional Hydroelectric","Hydroelectric Pumped Storage"]))]
-        return plants[plants['Plant Code'].isin(generators['Plant Code'])]
-    else:
-        coalGenerators = generators[generators['Technology'].str.contains('Coal')]    
+    coalGenerators = generators[generators['Technology'].str.contains('Coal')]   
 
     # final filter; should include only plants with coal generators in the correct region
     plants = plants[plants['Plant Code'].isin(coalGenerators['Plant Code'])]
 
-    plants['Plant Total Capacity (MW)'] = [np.sum(generators["Nameplate Capacity (MW)"][generators['Plant Code'] == pc].values) for pc in plants['Plant Code']]
-    plants['Plant Coal Capacity (MW)'] = [np.sum(coalGenerators["Nameplate Capacity (MW)"][coalGenerators['Plant Code'] == pc].values) for pc in plants['Plant Code']]
+    # capacity
+    plants['Coal Capacity (MW)'] = [np.sum(coalGenerators["Nameplate Capacity (MW)"][coalGenerators['Plant Code'] == pc].values) for pc in plants['Plant Code']]
 
     plants.set_index(plants['Plant Code'].values,inplace=True)
 
     return plants
 
-def getPlantGeneration(plants,years=2019):
-    ''' getCoalGeneration: Find annual plant generation (MWh). Return as a pandas dataframe indexed by plant code.
+def getPlantGeneration(plantCodes):
+    ''' getCoalGeneration: Get 2019 plant generation (MWh). Return as a pandas dataframe indexed by plant code.
 
     Args:
     --------
-    `plantCodes` (ndarray or dataframe): If Dataframe, must have column 'Plant Code'.
+    `plantCodes` (list, ndarray, or series): If Dataframe, must have column 'Plant Code'.
     `years` (int or list): OPTIONAL: Year(s) of data. If a list, annual generation is found as the mean of each year. Must be in {2010, 2012, 2014, 2016, 2018, 2019}.
 
     Return:
@@ -242,11 +184,22 @@ def getPlantGeneration(plants,years=2019):
     `generation` (DataFrame): Dataframe of annual generation indexed by plant.
     '''
 
-    if isinstance(plants, pd.Series):
-        plants = plants.values
-    elif isinstance(plants,int):
-        plants = np.array([plants])
+    if isinstance(plantCodes, pd.Series):
+        plantCodes = plantCodes.values
+    elif isinstance(plantCodes,list):
+        plantCodes = np.array(plantCodes)
 
-    plantGeneration = _getEmissionsMultiYearAverage(plants,years,generation_only=True)
+    # FROM DYLAN
 
-    return pd.Series(data=plantGeneration,index=plants)
+    coalPlants = pd.read_csv(EIA_923_FILE,usecols=['Plant Id','AER Fuel Type Code','Net Generation (Megawatthours)','Total Fuel Consumption MMBtu'])
+    coalPlants = coalPlants[coalPlants['AER Fuel Type Code'].isin(['COL','WOC'])]
+    coalPlants = coalPlants[coalPlants['Total Fuel Consumption MMBtu'] !=0]
+    coalPlants.drop(columns=['AER Fuel Type Code','Total Fuel Consumption MMBtu'],inplace=True)
+    coalPlants = coalPlants.groupby(['Plant Id']).sum()
+    coalPlants = coalPlants.loc[coalPlants.index.intersection(plantCodes)]
+    coalPlants = coalPlants[coalPlants['Net Generation (Megawatthours)'] > 0]
+
+    return pd.Series(data=coalPlants['Net Generation (Megawatthours)'],index=coalPlants.index.values)
+
+if __name__ == '__main__':
+    test()

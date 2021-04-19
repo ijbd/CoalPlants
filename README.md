@@ -1,5 +1,5 @@
 # Coal Plants Python Integration Module
-Code by ijbd
+Code by ijbd and dcorrell
 
 ## Updates
 2/12/2021
@@ -23,6 +23,10 @@ Code by ijbd
 3/13/2021-3/17/2021
 > Debug, test, and finalize. Finished interface, cleaning up documentation, and analysis of outputs. 
 
+4/15/2021-4/19/2021
+> Added coal generation from dcorrell. Add state filtering functionality as well. Compare emission rates with EIA historical values (lookin' good). Clean up the pandas code and update readme. Remove averaging based on data given by dcorrell
+
+
 ## Interface
 
 There are three functions that should be included in the public interface of this module:
@@ -32,11 +36,11 @@ There are three functions that should be included in the public interface of thi
 
 **All returned pandas containers are indexed by ORIS plant code. Missing data are denoted by `np.nan`.**
 
-`getCoalPlants`: Input region(s) (`str` or `list`). Each region string should be consistent with either NERC region or balancing authority codes as found in the EIA-860 dataset. Returns ORIS codes, latitudes and longitudes of all coal plants in the region (`pd.DataFrame`).
+`getCoalPlants`: Input region(s) (`str` or `list`). Each region string should be consistent with NERC region, balancing authority codes, and state abbreviations as found in the EIA-860 dataset. Returns ORIS codes, nameplate (coal) capacities, and latitudes/longitudes of all coal plants in the regions (`pd.DataFrame`).
 
-`getPlantGeneration`: Input ORIS codes (`int`, `np.ndarray`, or `pd.Series`) and years --OPTIONAL-- over which to average generation (`int` or `list`). By default, `years=2019`. Returns averaged annual plant generation in MWh (`pd.Series`). 
+`getPlantGeneration`: Input ORIS codes (`int`, `np.ndarray`, or `pd.Series`). Returns 2019 annual plant generation in MWh (`pd.Series`). 
 
-`getMarginalHealthCosts`: Input ORIS codes (`int`, `np.ndarray`, or `pd.Series`), season (`str`) --OPTIONAL--, and years --OPTIONAL-- over which to average marginal emissions (`int` or `list`). Return health damages per conventional generation ($/MWh) for given ORIS plant codes (`pd.Series`).
+`getMarginalHealthCosts`: Input ORIS codes (`int`, `np.ndarray`, or `pd.Series`), season (`str`) --OPTIONAL. Return health damages per conventional generation ($/MWh) for given ORIS plant codes (`pd.Series`) based on seasonal EASIUR health costs. Season should be one of `Annual | Spring | Summer | Fall | Winter`, but defaults to `Annual`.
 
 ### Example:
 
@@ -73,9 +77,6 @@ With this structure, `main.py` can use the functions from this module as follows
     # Only include 2019 generation
     plants['2019 Generation (MWh)'] = CoalPlants.getPlantGeneration(plants['Plant Code'])
 
-    # Average over three years of generation
-    plants['Average Generation (MWh)'] = CoalPlants.getPlantGeneration(plants['Plant Code'],years=[2016,2018,2019])
-
     # Marginal Health Costs
     plants['Marginal Health Cost ($/MWh)'] = CoalPlants.getMarginalHealthCosts(plants['Plant Code'])
 
@@ -83,15 +84,12 @@ With this structure, `main.py` can use the functions from this module as follows
 
 The output from `main.py` is:
     
-            Plant Code Latitude Longitude  ...  2019 Generation (MWh)  Average Generation (MWh)  Marginal Health Cost ($/MWh)
-        594         594  38.5857  -75.2341  ...               121056.0              2.926673e+05                     98.335683
-        602         602    39.18  -76.5389  ...              2231445.0              3.901454e+06                     36.019982
-        876         876  39.5906  -89.4964  ...              3114921.0              4.066159e+06                     19.260995
-        879         879  40.5408  -89.6786  ...              2334751.0              3.798617e+06                     31.785532
-        883         883  42.3833  -87.8133  ...              1193868.0              1.534654e+06                     52.995870
-
-    
-**Note:** `season` can be any of `Annual`, `Spring`, `Summer`, `Fall`, or `Winter`; but it defaults to 'Annual'
+    Plant Code  Latitude Longitude  Coal Capacity (MW)  2019 Generation (MWh)  Marginal Health Cost ($/MWh)
+            594  38.5857  -75.2341               445.5               119120.1                     99.811392
+            602    39.18  -76.5389              1370.2              2206360.7                     36.429497
+            876  39.5906  -89.4964              1319.0              3109175.0                     19.296591
+            879  40.5408  -89.6786              1785.6              2326413.0                     31.899453
+            883  42.3833  -87.8133               681.7              1179550.0                     53.531618
 
 
 ## Data Sources
