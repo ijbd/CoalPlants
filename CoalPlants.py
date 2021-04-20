@@ -129,7 +129,6 @@ def getMarginalHealthCosts(plantCodes,season='Annual'):
     # marginal health costs [$ / m.ton] * [m.ton / Mwh] = [$ / MWh]
     plants['marginal health cost'] = plants['SO2 cost']*plants['SO2 rate'] + plants['NOx cost']*plants['NOx rate']
             
-    plants.to_csv('tmp_test_2.csv')
     return pd.Series(data=plants['marginal health cost'].values, index=plantCodes)
 
 def getCoalPlants(regions='ALL'):
@@ -201,5 +200,3 @@ def getPlantGeneration(plantCodes):
 
     return pd.Series(data=coalPlants['Net Generation (Megawatthours)'],index=coalPlants.index.values)
 
-if __name__ == '__main__':
-    test()
