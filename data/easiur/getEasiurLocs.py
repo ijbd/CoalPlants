@@ -5,7 +5,7 @@ import os, sys
 PROGRAM_PATH = os.path.dirname(__file__)
 EIA860_FOLDER = os.path.join(PROGRAM_PATH,'../eia8602019')
 EIA860_PLANT_FILENAME = '2___Plant_Y2019.xlsx'
-OUTPUT_FILE = 'all_plants.csv'
+OUTPUT_FILE = 'plants.csv'
 
 df = pd.read_excel(os.path.join(EIA860_FOLDER,EIA860_PLANT_FILENAME), skiprows=1, usecols=['Plant Code','Latitude','Longitude'])
 
