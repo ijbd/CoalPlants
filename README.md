@@ -1,31 +1,13 @@
 # Coal Plants Python Integration Module
 Code by ijbd and dcorrell
 
-## Updates
-2/12/2021
-> Gathered data for emissions, generator location, and marginal social costs. 
+## Assumptions
 
-2/15/2021
-> Fixed EASIUR processing script. Updated data source descriptions.
+Since annual emissions/generation data are by plant, each generator in a plant has the same marginal emissions. 
 
-2/17/2021
-> Worked on `easiur.py` with the goal of getting a csv to pull marginal cost per MWh for any generator in the U.S. I started by getting generator info form EIA860 including nameplate capacity and stack heights. **ASSUMPTION:** Since annual emissions/generation data are by plant, each generator in a plant has the same marginal emissions. **ASSUMPTION:** Every generator in a plant has the average height of all stacks reported for that plant. **ASSUMPTION:** Generators with no stack height data are assumed to have stack heights of 150m.
+Every generator in a plant has the average height of all stacks reported for that plant.
 
-2/18/2021-2/22/2021
-> Finished processing the final CSV with marginal health costs ($/MWh) for each plant. 
-
-2/23/2021-3/1/2021
-> Found a large numbers of plants without emissions data. Switched to eGRID emissions data, which has a larger number of plants, but found the same issue. **Solution:** Filtered out renewable plants. After applying that filter, the script produced valid marginal health costs for 2881 of 3372 conventional (fossil fuel) plants. 
-
-3/11/2021-3/12/2021
-> Some basic updates to maintain consistency with coal plants modular. Return pandas DataFrame and accept pandas Series of plant codes (numpy array still accepted). BEGAN PLANTS: Localized coal plant and generation data. Established interface. Finished implementation and interface. Tested with different regional inputs. **Currently:** getCoalGeneration returns 2019 generation.
-
-3/13/2021-3/17/2021
-> Debug, test, and finalize. Finished interface, cleaning up documentation, and analysis of outputs. 
-
-4/15/2021-4/19/2021
-> Added coal generation from dcorrell. Add state filtering functionality as well. Compare emission rates with EIA historical values (lookin' good). Clean up the pandas code and update readme. Remove averaging based on data given by dcorrell
-
+Generators with no stack height data are assumed to have stack heights of 150m.
 
 ## Interface
 
